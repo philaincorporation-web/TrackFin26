@@ -1,0 +1,174 @@
+// DIWAA Finance — schéma de données (outil interne de DigiWomen School)
+// Lot 1 : authentification, rôles, paramètres de l'entreprise, journal d'audit.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  DIRECTRICE
+  ADMIN
+  SECRETAIRE
+  COLLABORATEUR
+}
+
+// ---------------------------------------------------------------------------
+// Authentification (tables attendues par Better Auth)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          Role      @default(COLLABORATEUR)
+  active        Boolean   @default(true)
+  phone         String?
+  jobTitle      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  avatar        UserAvatar?
+
+  @@map("user")
+}
+
+// Photo de profil : image normalisée côté serveur (256×256 WebP, métadonnées
+// EXIF retirées), servie uniquement aux utilisateurs connectés via
+// /api/avatar/[userId]. `user.image` contient l'URL versionnée.
+// Table séparée pour ne jamais charger les octets avec l'utilisateur.
+model UserAvatar {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Bytes
+  mimeType  String
+  updatedAt DateTime @updatedAt
+
+  @@map("user_avatar")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ---------------------------------------------------------------------------
+// Invitations : l'administrateur fixe l'e-mail et le profil, la personne crée
+// elle-même son compte (mot de passe) avec le code reçu. Le code n'est jamais
+// stocké en clair (empreinte SHA-256) et devient invalide après usage,
+// expiration, révocation ou trop d'essais erronés.
+// ---------------------------------------------------------------------------
+
+model Invitation {
+  id             String    @id @default(uuid())
+  email          String
+  role           Role
+  name           String?
+  codeHash       String    @unique
+  invitedById    String
+  expiresAt      DateTime
+  failedAttempts Int       @default(0)
+  acceptedAt     DateTime?
+  acceptedUserId String?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([email])
+  @@map("invitation")
+}
+
+// ---------------------------------------------------------------------------
+// Paramètres de l'entreprise utilisatrice (ligne unique, id = 1)
+// Les valeurs officielles (mentions légales, banque…) sont à confirmer par
+// DigiWomen School : aucune n'est inventée, les champs restent vides par défaut.
+// ---------------------------------------------------------------------------
+
+model CompanySettings {
+  id                   Int      @id @default(1)
+  legalName            String   @default("DigiWomen School")
+  address              String?
+  phone                String?
+  email                String?
+  rccm                 String?
+  nif                  String?
+  bankDetails          String?
+  currency             String   @default("XAF")
+  invoicePrefix        String   @default("FAC")
+  invoicePadding       Int      @default(3)
+  payrollPortalEnabled Boolean  @default(false)
+  updatedAt            DateTime @updatedAt
+  updatedById          String?
+
+  @@map("company_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Journal d'audit — append-only (UPDATE/DELETE bloqués par trigger SQL,
+// voir la migration init).
+// ---------------------------------------------------------------------------
+
+model AuditEvent {
+  id         BigInt   @id @default(autoincrement())
+  at         DateTime @default(now())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ip         String?
+
+  @@index([at])
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@map("audit_event")
+}

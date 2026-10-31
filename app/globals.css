@@ -1,26 +1,77 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Thème DIWAA Finance — couleurs issues du logo DigiWomen School.
+ * Vert : couleur primaire (actions, carte principale). Indigo : accent.
+ * Contrastes vérifiés AA pour le texte blanc sur brand-600 / indigo-600.
+ */
+@theme {
+  --color-brand-50: #eef7ec;
+  --color-brand-100: #d6ecd1;
+  --color-brand-200: #acd8a3;
+  --color-brand-500: #2e8b22;
+  --color-brand-600: #24731b;
+  --color-brand-700: #1c5a15;
+  --color-brand-900: #0f3a0b;
+
+  --color-accent-50: #efebfc;
+  --color-accent-100: #ddd4f8;
+  --color-accent-500: #4a25cc;
+  --color-accent-600: #3b17b8;
+  --color-accent-700: #2f1294;
+
+  /* Pages d'entrée : vert pétrole et sable */
+  --color-pine-700: #15514a;
+  --color-pine-800: #0f3d36;
+  --color-pine-900: #0a2b26;
+  --color-sand: #ebe4d1;
+  --color-sand-light: #f3eee2;
+  --color-sand-dark: #e3dbc6;
+
+  --color-canvas: #e8e6e5;
+  --color-canvas-soft: #f4f3f1;
+  --color-surface: #ffffff;
+  --color-ink: #18181b;
+  --color-muted: #52525b;
+  --color-line: #e4e4e7;
+
+  --color-danger-50: #fef2f2;
+  --color-danger-600: #c81e1e;
+  --color-warning-50: #fffbeb;
+  --color-warning-700: #a15c07;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius-card: 1.5rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* Motif de points décoratif des cartes (inspiré de la maquette) */
+@utility bg-dots {
+  background-image: radial-gradient(currentColor 1.6px, transparent 1.8px);
+  background-size: 22px 22px;
+}
+
+/* Focus clavier toujours visible */
+:focus-visible {
+  outline: 2px solid var(--color-accent-600);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
