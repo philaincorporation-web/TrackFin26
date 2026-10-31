@@ -5,6 +5,13 @@ import { ROLES } from "@/lib/authz/policy";
 
 export const PASSWORD_MIN = 10;
 
+/**
+ * Adresse e-mail : espaces retirés et minuscules AVANT la vérification du
+ * format (avec Zod 4, `z.email().trim()` vérifierait d'abord, et refuserait
+ * « nom@exemple.com » collé avec un espace).
+ */
+export const emailSchema = z.string().trim().toLowerCase().pipe(z.email("Adresse e-mail invalide"));
+
 export const passwordSchema = z
   .string()
   .min(PASSWORD_MIN, `Au moins ${PASSWORD_MIN} caractères`)
@@ -12,7 +19,7 @@ export const passwordSchema = z
 
 export const createUserSchema = z.object({
   name: z.string().trim().min(2, "Nom requis").max(120),
-  email: z.email("Adresse e-mail invalide").trim().toLowerCase(),
+  email: emailSchema,
   role: z.enum(ROLES, { error: "Rôle invalide" }),
   password: passwordSchema,
 });
@@ -26,7 +33,7 @@ export const updateUserAccessSchema = z.object({
 export type UpdateUserAccessInput = z.infer<typeof updateUserAccessSchema>;
 
 export const signInSchema = z.object({
-  email: z.email("Adresse e-mail invalide").trim().toLowerCase(),
+  email: emailSchema,
   password: z.string().min(1, "Mot de passe requis"),
 });
 export type SignInInput = z.infer<typeof signInSchema>;

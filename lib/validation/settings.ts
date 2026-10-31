@@ -13,7 +13,9 @@ export const companySettingsSchema = z.object({
   address: optionalText(300),
   phone: optionalText(40),
   email: z
-    .union([z.literal(""), z.email("Adresse e-mail invalide")])
+    .string()
+    .trim()
+    .pipe(z.union([z.literal(""), z.email("Adresse e-mail invalide")]))
     .transform((v) => (v === "" ? null : v))
     .nullable(),
   rccm: optionalText(60),

@@ -4,7 +4,15 @@ import { db } from "@/lib/db";
 import { ForbiddenError, type Actor } from "@/lib/authz/policy";
 import { BusinessError } from "@/lib/errors";
 import { INVITATION_MAX_ATTEMPTS } from "@/lib/invitations/code";
-import { acceptInvitation, checkInvitation, createInvitation, revokeInvitation } from "@/lib/services/invitations";
+import {
+  acceptInvitation,
+  checkInvitation,
+  createInvitation,
+  deliverInvitation,
+  reissueInvitation,
+  revokeInvitation,
+} from "@/lib/services/invitations";
+import type { EmailMessage } from "@/lib/email/mailer";
 import { insertUserWithPassword } from "@/lib/services/user-records";
 
 const run = randomBytes(4).toString("hex");
@@ -104,5 +112,48 @@ describe("invitations : du code à la création du compte", () => {
     expect(JSON.stringify(row)).not.toContain(inv.code.replace("-", ""));
     const audit = await db.auditEvent.findFirstOrThrow({ where: { entityId: inv.id } });
     expect(JSON.stringify({ before: audit.before, after: audit.after })).not.toContain(inv.code);
+  });
+});
+
+describe("envoi de l'invitation par e-mail", () => {
+  const ORIGIN = "https://track-fin26.vercel.app";
+
+  it("envoi réussi : e-mail au bon destinataire avec lien et code, audit sans le code", async () => {
+    const inv = await createInvitation(admin, { email: email("mail-ok"), role: "SECRETAIRE", name: "Mariam" });
+    const sent: EmailMessage[] = [];
+    const out = await deliverInvitation(admin, inv, ORIGIN, async (m) => {
+      sent.push(m);
+      return { sent: true, messageId: "test" };
+    });
+    expect(out.email.sent).toBe(true);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].to).toEqual({ email: inv.email, name: "Mariam" });
+    expect(sent[0].text).toContain(inv.code);
+    expect(sent[0].text).toContain(`${ORIGIN}/creer-compte?`);
+    const audit = await db.auditEvent.findFirstOrThrow({ where: { entityId: inv.id, action: "invitation.email_sent" } });
+    expect(JSON.stringify(audit.after)).not.toContain(inv.code);
+  });
+
+  it("échec d'envoi : l'invitation reste valable et l'échec est audité avec sa raison", async () => {
+    const inv = await createInvitation(admin, { email: email("mail-ko"), role: "COLLABORATEUR" });
+    const out = await deliverInvitation(admin, inv, ORIGIN, async () => ({ sent: false, reason: "Serveur injoignable." }));
+    expect(out.email).toEqual({ sent: false, reason: "Serveur injoignable." });
+    expect(await checkInvitation({ email: inv.email, code: inv.code })).toMatchObject({ role: "COLLABORATEUR" });
+    const audit = await db.auditEvent.findFirstOrThrow({ where: { entityId: inv.id, action: "invitation.email_failed" } });
+    expect(audit.after).toMatchObject({ reason: "Serveur injoignable." });
+  });
+
+  it("renvoi : nouveau code, même e-mail et même profil, l'ancien code est invalidé", async () => {
+    const first = await createInvitation(admin, { email: email("renvoi"), role: "DIRECTRICE", name: "Mme D." });
+    const second = await reissueInvitation(admin, first.id);
+    expect(second.code).not.toBe(first.code);
+    expect(second).toMatchObject({ email: first.email, role: "DIRECTRICE", name: "Mme D." });
+    await expect(checkInvitation({ email: first.email, code: first.code })).rejects.toBeInstanceOf(BusinessError);
+    expect(await checkInvitation({ email: second.email, code: second.code })).toMatchObject({ role: "DIRECTRICE" });
+  });
+
+  it("seul l'administrateur peut renvoyer une invitation", async () => {
+    const inv = await createInvitation(admin, { email: email("renvoi-interdit"), role: "COLLABORATEUR" });
+    await expect(reissueInvitation({ id: admin.id, role: "SECRETAIRE" }, inv.id)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

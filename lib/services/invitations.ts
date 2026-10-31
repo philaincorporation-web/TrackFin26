@@ -10,6 +10,8 @@ import {
   INVITATION_TTL_DAYS,
 } from "@/lib/invitations/code";
 import { insertUserWithPassword } from "@/lib/services/user-records";
+import { sendEmail, type EmailMessage, type SendResult } from "@/lib/email/mailer";
+import { invitationEmail } from "@/lib/email/templates/invitation";
 import { createInvitationSchema, invitationLookupSchema, signupSchemaFor } from "@/lib/validation/signup";
 
 /** Message unique : ne révèle pas si l'e-mail est invité ni pourquoi le code est refusé. */
@@ -57,7 +59,54 @@ export async function createInvitation(actor: Actor, input: unknown) {
   });
 
   // Le code en clair n'est renvoyé qu'une fois, pour être transmis à la personne.
-  return { id: invitation.id, email: invitation.email, role: invitation.role as Role, code, expiresAt };
+  return {
+    id: invitation.id,
+    email: invitation.email,
+    role: invitation.role as Role,
+    name: invitation.name,
+    code,
+    expiresAt,
+  };
+}
+
+export type IssuedInvitation = Awaited<ReturnType<typeof createInvitation>>;
+
+/**
+ * Envoie l'invitation par e-mail à la personne. Appelée APRÈS l'enregistrement
+ * de l'invitation : un échec d'envoi ne l'annule pas, l'administrateur garde
+ * le code et le lien à transmettre à la main. Chaque tentative est auditée
+ * (sans le code).
+ */
+export async function deliverInvitation(
+  actor: Actor,
+  invitation: IssuedInvitation,
+  origin: string,
+  send: (message: EmailMessage) => Promise<SendResult> = sendEmail,
+) {
+  assertCan(actor, "users.manage");
+  const link = `${origin}/creer-compte?${new URLSearchParams({ email: invitation.email, code: invitation.code })}`;
+  const content = invitationEmail({ ...invitation, link, origin });
+  const result = await send({ to: { email: invitation.email, name: invitation.name }, ...content });
+
+  await recordAudit(db, {
+    actorId: actor.id,
+    action: result.sent ? "invitation.email_sent" : "invitation.email_failed",
+    entityType: "invitation",
+    entityId: invitation.id,
+    after: result.sent ? { to: invitation.email } : { to: invitation.email, reason: result.reason },
+  });
+  return { link, email: result };
+}
+
+/** Renvoi : nouvelle invitation (nouveau code, 7 jours) pour le même e-mail et le même profil ; l'ancienne est révoquée. */
+export async function reissueInvitation(actor: Actor, invitationId: string) {
+  assertCan(actor, "users.manage");
+  const previous = await db.invitation.findFirst({
+    where: { id: invitationId, acceptedAt: null },
+    select: { email: true, role: true, name: true },
+  });
+  if (!previous) throw new BusinessError("Invitation introuvable ou déjà utilisée.");
+  return createInvitation(actor, { email: previous.email, role: previous.role, name: previous.name ?? undefined });
 }
 
 export async function listPendingInvitations(actor: Actor) {

@@ -3,13 +3,13 @@
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, Copy } from "lucide-react";
-import { ROLE_LABELS, ROLES, type Role } from "@/lib/authz/policy";
+import { Check, Copy, MailWarning } from "lucide-react";
+import { ROLE_LABELS, ROLES } from "@/lib/authz/policy";
 import { createInvitationSchema, type CreateInvitationInput } from "@/lib/validation/signup";
 import { Button, Field, FormMessage, Input, Select, invalidProps } from "@/components/ui/primitives";
-import { createInvitationAction } from "./actions";
+import { createInvitationAction, type InvitationOutcome } from "./actions";
 
-type Created = { email: string; role: Role; code: string; expiresAt: string; link: string };
+type Created = InvitationOutcome;
 
 const formatDate = new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeZone: "Africa/Libreville" });
 
@@ -23,7 +23,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-medium hover:bg-canvas"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-medium hover:bg-canvas-soft"
     >
       {copied ? <Check aria-hidden className="size-3.5 text-brand-600" /> : <Copy aria-hidden className="size-3.5" />}
       {copied ? "Copié" : label}
@@ -31,20 +31,20 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   );
 }
 
-/** Résultat affiché une seule fois : le code n'est plus consultable ensuite. */
-function InvitationResult({ created, onClose }: { created: Created; onClose: () => void }) {
+/** Code, lien et message prêts à transmettre à la main. */
+function ManualShare({ created }: { created: Created }) {
   const until = formatDate.format(new Date(created.expiresAt));
   const message =
-    `Bonjour, votre accès à DIWAA Finance (DigiWomen School) est prêt.\n` +
-    `Profil : ${ROLE_LABELS[created.role]}\n` +
-    `Créez votre compte ici : ${created.link}\n` +
-    `Identifiant : ${created.email}\nCode d'invitation : ${created.code} (valable jusqu'au ${until})`;
-
+    `Bonjour, votre accès à DIWAA Finance (DigiWomen School) est prêt.
+` +
+    `Profil : ${ROLE_LABELS[created.role]}
+` +
+    `Créez votre compte ici : ${created.link}
+` +
+    `Identifiant : ${created.email}
+Code d'invitation : ${created.code} (valable jusqu'au ${until})`;
   return (
-    <div className="space-y-4" role="status">
-      <FormMessage tone="success">
-        Invitation créée pour {created.email} ({ROLE_LABELS[created.role]}).
-      </FormMessage>
+    <div className="space-y-3">
       <div className="rounded-xl border border-line p-4">
         <p className="text-xs font-medium text-muted">Code d&apos;invitation</p>
         <div className="mt-1 flex items-center justify-between gap-3">
@@ -57,12 +57,45 @@ function InvitationResult({ created, onClose }: { created: Created; onClose: () 
         <CopyButton value={created.link} label="Copier le lien" />
         <CopyButton value={message} label="Copier le message complet" />
       </div>
-      <p className="text-xs text-muted">
-        Transmettez-le par un canal sûr (WhatsApp, e-mail, de vive voix). La personne choisira elle-même son mot de
-        passe.
-      </p>
+    </div>
+  );
+}
+
+/**
+ * Résultat d'une invitation (création ou renvoi). E-mail parti : confirmation,
+ * code replié en secours. Échec d'envoi : raison + code et lien à transmettre.
+ */
+export function InvitationResult({ created, onClose, closeLabel }: { created: Created; onClose: () => void; closeLabel: string }) {
+  return (
+    <div className="space-y-4">
+      {created.emailSent ? (
+        <FormMessage tone="success">
+          Invitation envoyée par e-mail à <strong>{created.email}</strong> ({ROLE_LABELS[created.role]}). La personne
+          crée son compte depuis le lien reçu.
+        </FormMessage>
+      ) : (
+        <div role="alert" className="flex items-start gap-2 rounded-xl bg-warning-50 px-3 py-2.5 text-sm text-warning-700">
+          <MailWarning aria-hidden className="mt-0.5 size-4 shrink-0" />
+          <span>
+            Invitation créée, mais <strong>l&apos;e-mail n&apos;a pas été envoyé</strong> : {created.emailError} Transmettez
+            le code ou le lien ci-dessous par un canal sûr (WhatsApp, de vive voix).
+          </span>
+        </div>
+      )}
+
+      {created.emailSent ? (
+        <details className="rounded-xl border border-line px-4 py-3 text-sm">
+          <summary className="cursor-pointer font-medium text-zinc-700">L&apos;e-mail n&apos;arrive pas ? Afficher le code</summary>
+          <div className="mt-3">
+            <ManualShare created={created} />
+          </div>
+        </details>
+      ) : (
+        <ManualShare created={created} />
+      )}
+
       <Button type="button" variant="secondary" className="w-full" onClick={onClose}>
-        Inviter une autre personne
+        {closeLabel}
       </Button>
     </div>
   );
@@ -86,6 +119,7 @@ export function InviteForm() {
     return (
       <InvitationResult
         created={created}
+        closeLabel="Inviter une autre personne"
         onClose={() => {
           setCreated(null);
           reset({ email: "", name: "", role: "COLLABORATEUR" });
@@ -106,7 +140,7 @@ export function InviteForm() {
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
       {error && <FormMessage tone="error">{error}</FormMessage>}
-      <Field id="inv-email" label="Adresse e-mail" error={errors.email?.message} hint="Ce sera son identifiant de connexion.">
+      <Field id="inv-email" label="Adresse e-mail" error={errors.email?.message} hint="Son identifiant de connexion ; l&apos;invitation y est envoyée.">
         <Input id="inv-email" type="email" autoComplete="off" {...invalidProps("inv-email", errors.email?.message)} {...register("email")} />
       </Field>
       <Field id="inv-name" label="Nom (facultatif)" error={errors.name?.message} hint="Pré-remplit son formulaire.">
@@ -122,7 +156,7 @@ export function InviteForm() {
         </Select>
       </Field>
       <Button type="submit" pending={pending} className="w-full">
-        Générer l&apos;invitation
+        Envoyer l&apos;invitation
       </Button>
     </form>
   );

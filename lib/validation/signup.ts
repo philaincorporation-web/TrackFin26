@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Role } from "@/lib/authz/policy";
 import { isWellFormedInvitationCode } from "@/lib/invitations/code";
-import { passwordSchema } from "@/lib/validation/users";
+import { emailSchema, passwordSchema } from "@/lib/validation/users";
 
 /**
  * Formulaire de création de compte propre à chaque profil. Les champs communs
@@ -61,7 +61,7 @@ export const SIGNUP_PROFILES: Record<Role, SignupProfile> = {
 };
 
 export const invitationLookupSchema = z.object({
-  email: z.email("Adresse e-mail invalide").trim().toLowerCase(),
+  email: emailSchema,
   code: z.string().trim().refine(isWellFormedInvitationCode, "Code d'invitation invalide (8 caractères, ex. K7P4-M2QX)"),
 });
 export type InvitationLookupInput = z.infer<typeof invitationLookupSchema>;
@@ -97,7 +97,7 @@ export type SignupInput = z.infer<ReturnType<typeof signupSchemaFor>>;
 
 /** Invitation créée par l'administrateur. */
 export const createInvitationSchema = z.object({
-  email: z.email("Adresse e-mail invalide").trim().toLowerCase(),
+  email: emailSchema,
   role: z.enum(["DIRECTRICE", "ADMIN", "SECRETAIRE", "COLLABORATEUR"], { error: "Profil invalide" }),
   name: z.string().trim().max(120).optional(),
 });

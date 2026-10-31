@@ -24,7 +24,9 @@ Dans l'application : **Paramètres → Utilisateurs → Inviter une personne**.
 | Nom (facultatif) | Pré-remplit son formulaire |
 | Profil | Directrice générale, Administrateur général, Secrétaire ou Collaborateur |
 
-Cliquez sur **Générer l'invitation**. L'application affiche :
+Cliquez sur **Envoyer l'invitation**. La personne reçoit aussitôt un e-mail avec un bouton « Créer mon compte », son code et la date d'expiration.
+
+Si l'e-mail ne peut pas partir (envoi non configuré, serveur injoignable…), l'invitation reste valable et l'application affiche la raison, puis :
 
 - un **code d'invitation** de 8 caractères (ex. `K7P4-M2QX`), valable **7 jours** ;
 - un **lien** qui pré-remplit l'e-mail et le code ;
@@ -32,7 +34,23 @@ Cliquez sur **Générer l'invitation**. L'application affiche :
 
 ⚠️ Le code n'est affiché **qu'une seule fois** : il n'est pas conservé en clair. S'il est perdu, générez une nouvelle invitation pour le même e-mail (l'ancienne est alors annulée automatiquement).
 
-Les invitations non utilisées apparaissent dans **Invitations en attente**, où vous pouvez les révoquer.
+Les invitations non utilisées apparaissent dans **Invitations en attente**. Vous pouvez les **renvoyer** (nouvel e-mail avec un nouveau code : l'ancien ne fonctionne plus) ou les **révoquer**.
+
+### Configuration de l'envoi par Gmail
+
+1. Le compte Google qui envoie doit avoir la **validation en deux étapes** activée.
+2. Sur https://myaccount.google.com/apppasswords, créez un **mot de passe d'application** (nom : « DIWAA Finance »). Google affiche 16 caractères.
+3. Renseignez ces variables dans `.env.local` **et** dans Vercel (Settings → Environment Variables → Production), puis redéployez :
+
+| Variable | Valeur |
+|---|---|
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `465` |
+| `SMTP_USER` | l'adresse Gmail d'envoi |
+| `SMTP_PASSWORD` | le mot de passe d'application (jamais le mot de passe Gmail) |
+| `MAIL_FROM_NAME` | `DIWAA Finance · DigiWomen School` |
+
+Pour passer plus tard à un autre service (AhaSend, Brevo…), seules ces variables changent.
 
 ## 3. La personne crée son compte
 
@@ -63,4 +81,10 @@ Chaque formulaire rappelle aussi ce que le profil permet de faire. Une fois le c
 
 Dans **Paramètres → Utilisateurs**, l'administrateur peut changer le profil d'une personne ou désactiver son compte. La personne est alors déconnectée immédiatement. Il reste toujours au moins un administrateur actif.
 
-**Mot de passe oublié** : la réinitialisation n'est pas encore disponible dans l'application. Elle est prévue dès qu'un canal d'envoi (e-mail ou SMS) sera choisi.
+**Mot de passe oublié** : en attendant un canal d'envoi (e-mail ou SMS), le mot de passe se réinitialise depuis le terminal, dans le dossier `my-app` :
+
+```
+npm run admin:reset-password -- --email adresse@exemple.com
+```
+
+Le script affiche la base visée et le compte trouvé, puis demande le nouveau mot de passe deux fois sans l'afficher. Toutes les sessions ouvertes du compte sont fermées, et l'opération est inscrite au journal d'audit.

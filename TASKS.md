@@ -43,7 +43,18 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` terminé (au sens de la « 
 ## Déploiement Vercel (31/10/2026)
 - [x] Build sans variables d'environnement : client Prisma créé au premier usage (`lib/db.ts`)
 - [x] Connexion en ligne (`INVALID_ORIGIN`) : adresses Vercel acceptées automatiquement (`lib/auth/origins.ts`), liens d'invitation sur le domaine de production
-- [ ] Pousser ces corrections sur GitHub (déclenche le déploiement de production)
+- [x] Origines Vercel poussées (commit 190ed51) : la production ne renvoie plus INVALID_ORIGIN
+- [x] Script `npm run admin:reset-password` (saisie masquée, sessions fermées, audit), testé sur branche jetable
+- [x] E-mail normalisé (espaces, majuscules) avant validation dans tous les formulaires (`emailSchema`)
+- [ ] Pousser le script et la correction e-mail sur GitHub
+
+## Envoi des invitations par e-mail (31/10/2026)
+- [x] Module SMTP générique (`lib/email`), Gmail par défaut, délais courts, n'interrompt jamais l'opération métier
+- [x] E-mail d'invitation aux couleurs DIWAA (HTML + texte, données échappées, logo crème)
+- [x] Envoi automatique à la création ; repli code + lien si échec ; bouton « Renvoyer » (nouveau code) ; audit `invitation.email_sent` / `invitation.email_failed`
+- [x] Tests : 6 unitaires (configuration, modèle, serveur injoignable) + 4 d'intégration (succès, échec, renvoi, permissions)
+- [ ] Mot de passe d'application Gmail + variables SMTP dans `.env.local` et Vercel
+- [ ] Premier envoi réel de contrôle
 - [ ] Corriger `BETTER_AUTH_URL` = `https://track-fin26.vercel.app` dans Vercel (Production)
 - [ ] Séparer les bases : branche Neon `dev` pour le local, `main` pour la production
 

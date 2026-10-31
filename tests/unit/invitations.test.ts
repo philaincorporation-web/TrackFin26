@@ -62,3 +62,11 @@ describe("formulaire de création de compte par profil", () => {
     expect(signupSchemaFor("ADMIN").safeParse({ ...base, password: "court", passwordConfirm: "court" }).success).toBe(false);
   });
 });
+
+describe("adresse e-mail", () => {
+  it("accepte une adresse collée avec espaces et majuscules, et la normalise", async () => {
+    const { emailSchema } = await import("@/lib/validation/users");
+    expect(emailSchema.parse("  Nom.Prenom@Exemple.COM ")).toBe("nom.prenom@exemple.com");
+    expect(emailSchema.safeParse("pas-une-adresse").success).toBe(false);
+  });
+});
