@@ -46,3 +46,6 @@ next-env.d.ts
 
 # exemple d environnement versionné
 !.env.example
+
+.vercel
+.env*
