@@ -16,8 +16,23 @@ function createClient() {
 // Une seule instance par processus (évite d'épuiser les connexions en dev / HMR).
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const db = globalForPrisma.prisma ?? createClient();
+function getClient(): PrismaClient {
+  globalForPrisma.prisma ??= createClient();
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+/**
+ * Client créé au premier usage réel, pas à l'import : `next build` charge les
+ * modules des routes pour lire leur configuration, sans variables
+ * d'environnement de base de données (ex. build Vercel). Une variable absente
+ * ne fait échouer que la requête qui touche la base, avec un message explicite.
+ */
+export const db = new Proxy({} as PrismaClient, {
+  get(_target, property) {
+    const client = getClient();
+    const value = Reflect.get(client, property, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 
 export type Tx = Prisma.TransactionClient;
