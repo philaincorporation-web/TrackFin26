@@ -3,12 +3,14 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { runAction } from "@/lib/actions";
+import { canonicalOrigin } from "@/lib/auth/origins";
 import { createInvitation, revokeInvitation } from "@/lib/services/invitations";
 import { updateUserAccess } from "@/lib/services/users";
 
 /** URL publique de l'application, pour le lien d'invitation. */
 async function appOrigin() {
-  if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL.replace(/\/$/, "");
+  const canonical = canonicalOrigin();
+  if (canonical) return canonical;
   const h = await headers();
   return `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
 }

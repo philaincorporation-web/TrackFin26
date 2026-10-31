@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db";
+import { canonicalOrigin, trustedOrigins } from "@/lib/auth/origins";
 
 /**
  * Authentification DIWAA Finance (Better Auth, sessions stockées dans Neon).
@@ -13,6 +14,8 @@ import { db } from "@/lib/db";
  */
 export const auth = betterAuth({
   appName: "DIWAA Finance",
+  baseURL: canonicalOrigin(),
+  trustedOrigins: trustedOrigins(),
   database: prismaAdapter(db, { provider: "postgresql" }),
   emailAndPassword: {
     enabled: true,

@@ -40,6 +40,13 @@ Légende : `[ ]` à faire · `[~]` en cours · `[x]` terminé (au sens de la « 
 - [x] Photos affichées dans le menu, la barre supérieure, le menu mobile et la liste des utilisateurs (initiales colorées à défaut)
 - [ ] Déplacer les photos vers Cloudflare R2 au lot 2 (stockées en base pour l'instant, ~2 à 15 Ko chacune)
 
+## Déploiement Vercel (31/10/2026)
+- [x] Build sans variables d'environnement : client Prisma créé au premier usage (`lib/db.ts`)
+- [x] Connexion en ligne (`INVALID_ORIGIN`) : adresses Vercel acceptées automatiquement (`lib/auth/origins.ts`), liens d'invitation sur le domaine de production
+- [ ] Pousser ces corrections sur GitHub (déclenche le déploiement de production)
+- [ ] Corriger `BETTER_AUTH_URL` = `https://track-fin26.vercel.app` dans Vercel (Production)
+- [ ] Séparer les bases : branche Neon `dev` pour le local, `main` pour la production
+
 ## Lot 2 — Stockage privé et dépenses
 - [ ] Upload sécurisé (MIME par signature, taille, nom régénéré) + URL signées
 - [ ] Catégories et projets
